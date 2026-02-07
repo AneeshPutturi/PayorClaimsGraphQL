@@ -1,0 +1,22 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <ItemGroup>
+    <ProjectReference Include="..\PayorClaims.Application\PayorClaims.Application.csproj" />
+    <ProjectReference Include="..\PayorClaims.Domain\PayorClaims.Domain.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="GraphQL" Version="8.8.3" />
+    <PackageReference Include="GraphQL.DataLoader" Version="8.8.3" />
+    <PackageReference Include="GraphQL.MicrosoftDI" Version="8.8.3" />
+    <PackageReference Include="GraphQL.SystemTextJson" Version="8.8.3" />
+  </ItemGroup>
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+  </PropertyGroup>
+
+</Project>

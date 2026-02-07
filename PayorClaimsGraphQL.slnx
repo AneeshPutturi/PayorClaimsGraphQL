@@ -1,0 +1,7 @@
+<Solution>
+  <Project Path="PayorClaims.Api/PayorClaims.Api.csproj" />
+  <Project Path="PayorClaims.Application/PayorClaims.Application.csproj" />
+  <Project Path="PayorClaims.Domain/PayorClaims.Domain.csproj" />
+  <Project Path="PayorClaims.Infrastructure/PayorClaims.Infrastructure.csproj" />
+  <Project Path="PayorClaims.Schema/PayorClaims.Schema.csproj" />
+</Solution>

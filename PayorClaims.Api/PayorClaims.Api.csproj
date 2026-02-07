@@ -1,0 +1,25 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <ItemGroup>
+    <ProjectReference Include="..\PayorClaims.Schema\PayorClaims.Schema.csproj" />
+    <ProjectReference Include="..\PayorClaims.Application\PayorClaims.Application.csproj" />
+    <ProjectReference Include="..\PayorClaims.Infrastructure\PayorClaims.Infrastructure.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="GraphQL.MicrosoftDI" Version="8.8.3" />
+    <PackageReference Include="GraphQL.Server.Transports.AspNetCore" Version="8.3.3" />
+    <PackageReference Include="GraphQL.Server.Ui.Altair" Version="8.3.3" />
+    <PackageReference Include="Serilog.AspNetCore" Version="10.0.0" />
+    <PackageReference Include="Serilog.Sinks.Console" Version="6.1.1" />
+    <PackageReference Include="Swashbuckle.AspNetCore" Version="10.1.2" />
+    <PackageReference Include="Microsoft.OpenApi" Version="2.4.1" />
+  </ItemGroup>
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+  </PropertyGroup>
+
+</Project>
