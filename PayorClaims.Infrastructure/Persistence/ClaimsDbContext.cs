@@ -1,4 +1,6 @@
 using System.Linq.Expressions;
+using System.Security.Cryptography;
+using System.Text;
 using Microsoft.EntityFrameworkCore;
 using PayorClaims.Domain.Common;
 using PayorClaims.Domain.Entities;
@@ -48,6 +50,11 @@ public class ClaimsDbContext : DbContext
     public DbSet<MemberConsent> MemberConsents => Set<MemberConsent>();
     // HIPAA (append-only, no BaseEntity)
     public DbSet<HipaaAccessLog> HipaaAccessLogs => Set<HipaaAccessLog>();
+    // Webhooks
+    public DbSet<WebhookEndpoint> WebhookEndpoints => Set<WebhookEndpoint>();
+    public DbSet<WebhookDelivery> WebhookDeliveries => Set<WebhookDelivery>();
+    // Export jobs
+    public DbSet<ExportJob> ExportJobs => Set<ExportJob>();
     // Reference tables
     public DbSet<CptCode> CptCodes => Set<CptCode>();
     public DbSet<DiagnosisCode> DiagnosisCodes => Set<DiagnosisCode>();
@@ -57,14 +64,18 @@ public class ClaimsDbContext : DbContext
     {
         modelBuilder.ApplyConfigurationsFromAssembly(typeof(ClaimsDbContext).Assembly);
 
+        var isSqlite = Database.ProviderName?.Contains("Sqlite", StringComparison.OrdinalIgnoreCase) == true;
         foreach (var entityType in modelBuilder.Model.GetEntityTypes())
         {
             if (typeof(BaseEntity).IsAssignableFrom(entityType.ClrType))
             {
-                modelBuilder.Entity(entityType.ClrType)
+                var rvBuilder = modelBuilder.Entity(entityType.ClrType)
                     .Property(nameof(BaseEntity.RowVersion))
-                    .IsRowVersion()
                     .IsConcurrencyToken();
+                if (isSqlite)
+                    rvBuilder.ValueGeneratedNever(); // SQLite has no rowversion; send value on insert
+                else
+                    rvBuilder.IsRowVersion();
 
                 var parameter = Expression.Parameter(entityType.ClrType, "e");
                 var isDeletedProperty = Expression.Property(parameter, nameof(BaseEntity.IsDeleted));
@@ -77,15 +88,28 @@ public class ClaimsDbContext : DbContext
     public override int SaveChanges()
     {
         EnforceHipaaAccessLogAppendOnly();
+        EnforceAuditEventAppendOnly();
         ApplyBaseEntityConventions();
+        ComputeAuditEventHashChain();
         return base.SaveChanges();
     }
 
     public override Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
     {
         EnforceHipaaAccessLogAppendOnly();
+        EnforceAuditEventAppendOnly();
         ApplyBaseEntityConventions();
+        ComputeAuditEventHashChain();
         return base.SaveChangesAsync(cancellationToken);
+    }
+
+    private void EnforceAuditEventAppendOnly()
+    {
+        foreach (var entry in ChangeTracker.Entries<AuditEvent>())
+        {
+            if (entry.State is EntityState.Modified or EntityState.Deleted)
+                throw new InvalidOperationException("AuditEvent is append-only; modifications and deletions are not allowed.");
+        }
     }
 
     private void EnforceHipaaAccessLogAppendOnly()
@@ -96,6 +120,36 @@ public class ClaimsDbContext : DbContext
                 throw new InvalidOperationException("HipaaAccessLog is append-only; modifications and deletions are not allowed.");
         }
     }
+
+    private void ComputeAuditEventHashChain()
+    {
+        var added = ChangeTracker.Entries<AuditEvent>().Where(e => e.State == EntityState.Added).Select(e => e.Entity).ToList();
+        if (added.Count == 0) return;
+
+        string? lastHash = null;
+        try
+        {
+            lastHash = AuditEvents.IgnoreQueryFilters()
+                .OrderByDescending(x => x.OccurredAt).ThenByDescending(x => x.Id)
+                .Select(x => x.Hash)
+                .FirstOrDefault();
+        }
+        catch
+        {
+            // Table may not exist during migrations
+        }
+
+        var ordered = added.OrderBy(e => e.OccurredAt).ThenBy(e => e.Id).ToList();
+        foreach (var e in ordered)
+        {
+            e.PrevHash = lastHash ?? "";
+            var payload = $"{e.PrevHash}|{e.ActorUserId}|{e.Action}|{e.EntityType}|{e.EntityId}|{e.OccurredAt:O}|{e.DiffJson ?? ""}";
+            e.Hash = ToHex(SHA256.HashData(Encoding.UTF8.GetBytes(payload)));
+            lastHash = e.Hash;
+        }
+    }
+
+    private static string ToHex(byte[] bytes) => Convert.ToHexString(bytes).ToLowerInvariant();
 
     private void ApplyBaseEntityConventions()
     {

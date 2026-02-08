@@ -9,5 +9,6 @@ public class AppSchema : GraphQL.Types.Schema
     {
         Query = sp.GetRequiredService<AppQuery>();
         Mutation = sp.GetRequiredService<AppMutation>();
+        Subscription = sp.GetRequiredService<AppSubscription>();
     }
 }

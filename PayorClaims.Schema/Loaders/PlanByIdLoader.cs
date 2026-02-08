@@ -1,3 +1,4 @@
+using GraphQL;
 using GraphQL.DataLoader;
 using Microsoft.EntityFrameworkCore;
 using PayorClaims.Domain.Entities;

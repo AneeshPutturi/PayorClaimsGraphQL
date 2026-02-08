@@ -1,5 +1,4 @@
 using GraphQL.Types;
-using PayorClaims.Schema.Scalars;
 
 namespace PayorClaims.Schema.Inputs;
 
@@ -10,9 +9,9 @@ public class ClaimSubmissionInputGraphType : InputObjectGraphType<ClaimSubmissio
         Name = "ClaimSubmissionInput";
         Field<NonNullGraphType<IdGraphType>>("memberId");
         Field<NonNullGraphType<IdGraphType>>("providerId");
-        Field<NonNullGraphType<DateOnlyGraphType>>("serviceFrom");
-        Field<NonNullGraphType<DateOnlyGraphType>>("serviceTo");
-        Field<NonNullGraphType<DateOnlyGraphType>>("receivedDate");
+        Field<NonNullGraphType<GraphQL.Types.DateOnlyGraphType>>("serviceFrom");
+        Field<NonNullGraphType<GraphQL.Types.DateOnlyGraphType>>("serviceTo");
+        Field<NonNullGraphType<GraphQL.Types.DateOnlyGraphType>>("receivedDate");
         Field<NonNullGraphType<StringGraphType>>("idempotencyKey");
         Field<ListGraphType<NonNullGraphType<ClaimDiagnosisInputGraphType>>>("diagnoses");
         Field<NonNullGraphType<ListGraphType<NonNullGraphType<ClaimLineInputGraphType>>>>("lines");

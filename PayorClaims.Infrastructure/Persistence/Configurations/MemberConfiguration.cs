@@ -14,5 +14,6 @@ public class MemberConfiguration : IEntityTypeConfiguration<Member>
         builder.Property(x => x.LastName).HasMaxLength(100).IsRequired();
         builder.Property(x => x.Gender).HasMaxLength(20);
         builder.Property(x => x.Status).HasMaxLength(20).IsRequired();
+        builder.Property(x => x.SsnPlain).HasMaxLength(20);
     }
 }

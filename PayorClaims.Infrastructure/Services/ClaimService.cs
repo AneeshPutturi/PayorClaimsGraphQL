@@ -3,6 +3,8 @@ using System.Text;
 using Microsoft.EntityFrameworkCore;
 using PayorClaims.Application.Abstractions;
 using PayorClaims.Application.Dtos.Claims;
+using PayorClaims.Application.Events;
+using PayorClaims.Application.Exceptions;
 using PayorClaims.Domain.Entities;
 using PayorClaims.Infrastructure.Options;
 using PayorClaims.Infrastructure.Persistence;
@@ -13,11 +15,13 @@ public class ClaimService : IClaimService
 {
     private readonly ClaimsDbContext _db;
     private readonly LocalStorageOptions _storage;
+    private readonly IEventBus _eventBus;
 
-    public ClaimService(ClaimsDbContext db, Microsoft.Extensions.Options.IOptions<LocalStorageOptions> storage)
+    public ClaimService(ClaimsDbContext db, Microsoft.Extensions.Options.IOptions<LocalStorageOptions> storage, IEventBus eventBus)
     {
         _db = db;
         _storage = storage.Value;
+        _eventBus = eventBus;
     }
 
     public async Task<(Claim Claim, bool AlreadyExisted)> SubmitClaimAsync(ClaimSubmissionInputDto input, string actorType, Guid? actorId, CancellationToken ct = default)
@@ -36,7 +40,7 @@ public class ClaimService : IClaimService
             .OrderByDescending(c => c.StartDate)
             .FirstOrDefaultAsync(ct);
         if (coverage == null)
-            throw new FluentValidation.ValidationException(new[] { new FluentValidation.ValidationFailure("Coverage", "No active coverage for service dates") });
+            throw new AppValidationException("VALIDATION_FAILED", "No active coverage for service dates");
 
         // 3) Reference validation: CPT and ICD10
         var serviceFrom = input.ServiceFrom;
@@ -49,7 +53,7 @@ public class ClaimService : IClaimService
             .ToListAsync(ct);
         var missingCpt = cptCodes.Except(cptExists).ToList();
         if (missingCpt.Count > 0)
-            throw new FluentValidation.ValidationException(new[] { new FluentValidation.ValidationFailure("CptCode", $"CPT codes not found or not effective: {string.Join(", ", missingCpt)}") });
+            throw new AppValidationException("VALIDATION_FAILED", $"CPT codes not found or not effective: {string.Join(", ", missingCpt)}");
 
         var allDiagnoses = (input.Diagnoses ?? new List<ClaimDiagnosisInputDto>())
             .Concat(input.Lines.SelectMany(l => l.Diagnoses ?? new List<ClaimDiagnosisInputDto>()))
@@ -64,7 +68,7 @@ public class ClaimService : IClaimService
                     && d.EffectiveFrom <= serviceFrom
                     && (d.EffectiveTo == null || d.EffectiveTo >= serviceFrom), ct);
             if (!exists)
-                throw new FluentValidation.ValidationException(new[] { new FluentValidation.ValidationFailure("Diagnosis", $"Diagnosis code {codeSystem}:{code} not found or not effective.") });
+                throw new AppValidationException("VALIDATION_FAILED", $"Diagnosis code {codeSystem}:{code} not found or not effective.");
         }
 
         // 4) Fingerprint
@@ -79,7 +83,7 @@ public class ClaimService : IClaimService
         var datePrefix = DateTime.UtcNow.ToString("yyyyMMdd");
         var suffix = Guid.NewGuid().ToString("N")[..4];
         var claimNumber = $"CLM{datePrefix}{suffix}";
-        while (await _db.Claims.AnyAsync(c => c.ClaimNumber == claimNumber, ct))
+        while (await _db.Claims.AsNoTracking().AnyAsync(c => c.ClaimNumber == claimNumber, ct))
         {
             suffix = Guid.NewGuid().ToString("N")[..4];
             claimNumber = $"CLM{datePrefix}{suffix}";
@@ -157,7 +161,7 @@ public class ClaimService : IClaimService
     public async Task<Claim> AdjudicateClaimAsync(Guid claimId, byte[] rowVersion, List<AdjudicateLineDto> lineDecisions, CancellationToken ct = default)
     {
         var claim = await _db.Claims.Include(c => c.Lines).Include(c => c.Coverage).FirstOrDefaultAsync(c => c.Id == claimId, ct)
-            ?? throw new InvalidOperationException("Claim not found");
+            ?? throw new AppValidationException("VALIDATION_FAILED", "Claim not found");
         _db.Entry(claim).Property(x => x.RowVersion).OriginalValue = rowVersion;
 
         foreach (var dec in lineDecisions)
@@ -172,14 +176,13 @@ public class ClaimService : IClaimService
 
         claim.TotalAllowed = claim.Lines.Sum(l => l.AllowedAmount);
         claim.TotalPaid = claim.Lines.Sum(l => l.PaidAmount);
+        var oldStatus = claim.Status;
         claim.Status = claim.Lines.All(l => l.LineStatus is "Approved" or "Denied")
             ? "Adjudicated"
             : "InReview";
 
         // Accumulators
-        var planId = claim.Coverage?.PlanId ?? claim.CoverageId.HasValue
-            ? (await _db.Coverages.AsNoTracking().Where(c => c.Id == claim.CoverageId).Select(c => c.PlanId).FirstOrDefaultAsync(ct))
-            : (Guid?)null;
+        Guid? planId = claim.Coverage != null ? claim.Coverage.PlanId : (claim.CoverageId.HasValue ? await _db.Coverages.AsNoTracking().Where(c => c.Id == claim.CoverageId!.Value).Select(c => c.PlanId).FirstOrDefaultAsync(ct) : (Guid?)null);
         if (planId.HasValue)
         {
             var year = claim.ServiceFromDate.Year;
@@ -196,10 +199,11 @@ public class ClaimService : IClaimService
         }
 
         await _db.SaveChangesAsync(ct);
+        _eventBus.Publish(new ClaimStatusChangedEvent(claimId, oldStatus, claim.Status, DateTime.UtcNow));
 
         // Payment idempotently
         var payKey = "PAY-" + claim.ClaimNumber;
-        var hasPayment = await _db.Payments.AnyAsync(p => p.ClaimId == claimId && p.IdempotencyKey == payKey, ct);
+        var hasPayment = await _db.Payments.AsNoTracking().AnyAsync(p => p.ClaimId == claimId && p.IdempotencyKey == payKey, ct);
         if (!hasPayment)
         {
             _db.Payments.Add(new Payment
@@ -214,7 +218,7 @@ public class ClaimService : IClaimService
         }
 
         // EOB + stub file
-        var hasEob = await _db.Eobs.AnyAsync(e => e.ClaimId == claimId, ct);
+        var hasEob = await _db.Eobs.AsNoTracking().AnyAsync(e => e.ClaimId == claimId, ct);
         if (!hasEob)
         {
             var eobNumber = "EOB-" + claim.ClaimNumber;
@@ -226,7 +230,7 @@ public class ClaimService : IClaimService
             var storageKey = stubPath;
             var sha256 = ToHex(SHA256.HashData(Encoding.UTF8.GetBytes(stubContent)));
 
-            _db.Eobs.Add(new Eob
+            var eob = new Eob
             {
                 ClaimId = claim.Id,
                 EobNumber = eobNumber,
@@ -235,8 +239,10 @@ public class ClaimService : IClaimService
                 DocumentSha256 = sha256,
                 DeliveryMethod = "File",
                 DeliveryStatus = "Pending"
-            });
+            };
+            _db.Eobs.Add(eob);
             await _db.SaveChangesAsync(ct);
+            _eventBus.Publish(new EobGeneratedEvent(eob.Id, claim.Id, eob.GeneratedAt));
         }
 
         return claim;

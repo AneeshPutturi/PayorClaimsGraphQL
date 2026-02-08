@@ -4,11 +4,15 @@ using Microsoft.AspNetCore.Diagnostics;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
 using PayorClaims.Api.Extensions;
+using PayorClaims.Api.GraphQL;
 using PayorClaims.Api.Middleware;
 using PayorClaims.Application.Abstractions;
 using PayorClaims.Application.Extensions;
+using PayorClaims.Application.Security;
 using PayorClaims.Infrastructure;
 using PayorClaims.Schema.Schema;
+using GraphQL;
+using GraphQL.Server.Transports.AspNetCore;
 using Serilog;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -20,9 +24,9 @@ builder.Host.UseSerilog((ctx, cfg) =>
         .WriteTo.Console();
 });
 
-builder.Services.AddApiServices(builder.Configuration);
-builder.Services.AddGraphQlServices();
-builder.Services.AddInfrastructure(builder.Configuration);
+builder.Services.AddApiServices(builder.Configuration, builder.Environment);
+builder.Services.AddGraphQlServices(builder.Configuration);
+builder.Services.AddInfrastructure(builder.Configuration, builder.Environment);
 builder.Services.AddApplication();
 
 var app = builder.Build();
@@ -56,7 +60,6 @@ app.UseStatusCodePages(async context =>
         }).ExecuteAsync(context.HttpContext);
 });
 
-// Correlation ID (early) then request logging
 app.UseMiddleware<CorrelationIdMiddleware>();
 app.UseSerilogRequestLogging(options =>
 {
@@ -69,6 +72,10 @@ app.UseSerilogRequestLogging(options =>
 });
 
 app.UseRouting();
+app.UseWebSockets();
+app.UseAuthentication();
+app.UseAuthorization();
+app.UseMiddleware<ActorContextMiddleware>();
 app.UseRateLimiter();
 
 // Health checks (JSON with status and checks)
@@ -83,8 +90,21 @@ app.MapHealthChecks("/health/ready", new HealthCheckOptions
     ResponseWriter = WriteHealthResponseAsync
 });
 
+app.MapControllers();
 app.UseEndpoints(endpoints =>
 {
+    // HTTP POST goes through custom endpoint (persisted-query enforcement when enabled)
+    endpoints.MapPost("/graphql", async (
+        HttpContext http,
+        AppSchema schema,
+        IDocumentExecuter documentExecuter,
+        IGraphQLTextSerializer serializer,
+        IPersistedQueryStore persistedQueryStore,
+        IConfiguration configuration,
+        IActorContextProvider actorContextProvider) =>
+        await GraphQLHttpEndpoint.HandlePostAsync(http, schema, documentExecuter, serializer, persistedQueryStore, configuration, actorContextProvider))
+        .RequireRateLimiting("fixed");
+    // GET (schema, etc.) and WebSockets (subscriptions) still use MapGraphQL
     endpoints.MapGraphQL<AppSchema>("/graphql").RequireRateLimiting("fixed");
 });
 

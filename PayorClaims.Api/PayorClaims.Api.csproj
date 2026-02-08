@@ -7,6 +7,9 @@
   </ItemGroup>
 
   <ItemGroup>
+    <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="10.0.2" />
+    <PackageReference Include="Microsoft.IdentityModel.Tokens" Version="8.3.0" />
+    <PackageReference Include="System.IdentityModel.Tokens.Jwt" Version="8.3.0" />
     <PackageReference Include="GraphQL.MicrosoftDI" Version="8.8.3" />
     <PackageReference Include="GraphQL.Server.Transports.AspNetCore" Version="8.3.3" />
     <PackageReference Include="GraphQL.Server.Ui.Altair" Version="8.3.3" />
@@ -24,5 +27,9 @@
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
   </PropertyGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="PayorClaims.Tests" />
+  </ItemGroup>
 
 </Project>

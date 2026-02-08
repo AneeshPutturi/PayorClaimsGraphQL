@@ -1,5 +1,4 @@
 using GraphQL.Types;
-using PayorClaims.Schema.Scalars;
 
 namespace PayorClaims.Schema.Inputs;
 
@@ -11,7 +10,7 @@ public class ClaimLineInputGraphType : InputObjectGraphType<ClaimLineInput>
         Field<NonNullGraphType<IntGraphType>>("lineNumber");
         Field<NonNullGraphType<StringGraphType>>("cptCode");
         Field<NonNullGraphType<IntGraphType>>("units");
-        Field<NonNullGraphType<DecimalGraphType>>("billedAmount");
+        Field<NonNullGraphType<PayorClaims.Schema.Scalars.DecimalGraphType>>("billedAmount");
         Field<ListGraphType<NonNullGraphType<ClaimDiagnosisInputGraphType>>>("diagnoses");
     }
 }

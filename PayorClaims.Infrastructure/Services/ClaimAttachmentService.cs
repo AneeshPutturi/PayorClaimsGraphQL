@@ -1,7 +1,7 @@
 using System.Security.Cryptography;
-using System.Text;
 using Microsoft.EntityFrameworkCore;
 using PayorClaims.Application.Abstractions;
+using PayorClaims.Application.Exceptions;
 using PayorClaims.Domain.Entities;
 using PayorClaims.Infrastructure.Options;
 using PayorClaims.Infrastructure.Persistence;
@@ -10,6 +10,7 @@ namespace PayorClaims.Infrastructure.Services;
 
 public class ClaimAttachmentService : IClaimAttachmentService
 {
+    private const int MaxAttachmentBytes = 5 * 1024 * 1024; // 5 MB
     private readonly ClaimsDbContext _db;
     private readonly LocalStorageOptions _storage;
 
@@ -21,14 +22,22 @@ public class ClaimAttachmentService : IClaimAttachmentService
 
     public async Task<ClaimAttachment> UploadAsync(Guid claimId, string fileName, string contentType, byte[] data, string actorType, Guid? actorId, CancellationToken ct = default)
     {
-        var claim = await _db.Claims.AsNoTracking().AnyAsync(c => c.Id == claimId, ct);
-        if (!claim)
-            throw new InvalidOperationException("Claim not found");
+        if (data.Length > MaxAttachmentBytes)
+            throw new AppValidationException("ATTACHMENT_TOO_LARGE", $"Attachment size exceeds 5 MB (got {data.Length} bytes).");
+
+        var claimExists = await _db.Claims.AsNoTracking().AnyAsync(c => c.Id == claimId, ct);
+        if (!claimExists)
+            throw new AppValidationException("VALIDATION_FAILED", "Claim not found");
 
         var sha256 = Convert.ToHexString(SHA256.HashData(data)).ToLowerInvariant();
-        var localDir = Path.Combine(_storage.LocalPath, "attachments");
-        Directory.CreateDirectory(localDir);
-        var storageKey = Path.Combine(localDir, $"{sha256}.bin");
+        var baseDir = Path.Combine(_storage.LocalPath);
+        Directory.CreateDirectory(baseDir);
+        var attachmentsDir = Path.Combine(baseDir, "attachments");
+        Directory.CreateDirectory(attachmentsDir);
+        var eobsDir = Path.Combine(baseDir, "eobs");
+        Directory.CreateDirectory(eobsDir);
+
+        var storageKey = Path.Combine(attachmentsDir, $"{sha256}.bin");
         await File.WriteAllBytesAsync(storageKey, data, ct);
 
         var attachment = new ClaimAttachment

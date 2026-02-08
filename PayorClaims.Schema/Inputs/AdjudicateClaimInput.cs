@@ -1,5 +1,4 @@
 using GraphQL.Types;
-using PayorClaims.Schema.Scalars;
 
 namespace PayorClaims.Schema.Inputs;
 
@@ -11,8 +10,8 @@ public class AdjudicateLineInputGraphType : InputObjectGraphType<AdjudicateLineI
         Field<NonNullGraphType<IntGraphType>>("lineNumber");
         Field<NonNullGraphType<StringGraphType>>("status");
         Field<StringGraphType>("denialReasonCode");
-        Field<NonNullGraphType<DecimalGraphType>>("allowedAmount");
-        Field<NonNullGraphType<DecimalGraphType>>("paidAmount");
+        Field<NonNullGraphType<PayorClaims.Schema.Scalars.DecimalGraphType>>("allowedAmount");
+        Field<NonNullGraphType<PayorClaims.Schema.Scalars.DecimalGraphType>>("paidAmount");
     }
 }
 

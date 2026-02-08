@@ -2,8 +2,11 @@ using FluentValidation;
 using GraphQL;
 using GraphQL.Types;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection;
 using PayorClaims.Application.Abstractions;
 using PayorClaims.Application.Dtos.Claims;
+using PayorClaims.Application.Exceptions;
+using PayorClaims.Application.Security;
 using PayorClaims.Domain.Entities;
 using PayorClaims.Infrastructure.Persistence;
 using PayorClaims.Schema.Inputs;
@@ -27,8 +30,17 @@ public class AppMutation : ObjectGraphType
                 await validator.ValidateAndThrowAsync(dto, c.CancellationToken);
 
                 var service = c.RequestServices!.GetRequiredService<IClaimService>();
-                var (claim, alreadyExisted) = await service.SubmitClaimAsync(dto, "Provider", null, c.CancellationToken);
-                return new SubmitClaimPayload { Claim = claim, AlreadyExisted = alreadyExisted };
+                try
+                {
+                    var result = await service.SubmitClaimAsync(dto, "Provider", null, c.CancellationToken);
+                    return new SubmitClaimPayload { Claim = result.Claim, AlreadyExisted = result.AlreadyExisted };
+                }
+                catch (AppValidationException ex)
+                {
+                    var err = new ExecutionError("Validation failed") { Code = ex.Code ?? "VALIDATION_FAILED" };
+                    (err.Extensions ??= new Dictionary<string, object?>())["errors"] = ex.Errors;
+                    throw err;
+                }
             });
 
         Field<NonNullGraphType<AdjudicateClaimPayloadType>>("adjudicateClaim")
@@ -64,6 +76,12 @@ public class AppMutation : ObjectGraphType
                 {
                     var claim = await service.AdjudicateClaimAsync(claimId, rowVersion, lineDecisions, c.CancellationToken);
                     return new AdjudicateClaimPayload { Claim = claim };
+                }
+                catch (AppValidationException ex)
+                {
+                    var err = new ExecutionError("Validation failed") { Code = ex.Code ?? "VALIDATION_FAILED" };
+                    (err.Extensions ??= new Dictionary<string, object?>())["errors"] = ex.Errors;
+                    throw err;
                 }
                 catch (DbUpdateConcurrencyException)
                 {
@@ -117,7 +135,59 @@ public class AppMutation : ObjectGraphType
                 }
 
                 var attachmentService = c.RequestServices!.GetRequiredService<IClaimAttachmentService>();
-                return await attachmentService.UploadAsync(claimId, fileName, contentType, data, "Provider", null, c.CancellationToken);
+                try
+                {
+                    return await attachmentService.UploadAsync(claimId, fileName, contentType, data, "Provider", null, c.CancellationToken);
+                }
+                catch (AppValidationException ex)
+                {
+                    var err = new ExecutionError(ex.Message) { Code = ex.Code ?? "VALIDATION_FAILED" };
+                    (err.Extensions ??= new Dictionary<string, object?>())["errors"] = ex.Errors;
+                    throw err;
+                }
+            });
+
+        Field<NonNullGraphType<WebhookEndpointType>>("registerWebhook")
+            .Argument<NonNullGraphType<StringGraphType>>("name")
+            .Argument<NonNullGraphType<StringGraphType>>("url")
+            .Argument<StringGraphType>("secret")
+            .ResolveAsync(async c =>
+            {
+                var actorProvider = c.RequestServices!.GetRequiredService<IActorContextProvider>();
+                var actor = actorProvider.GetActorContext();
+                if (actor == null || !actor.IsAdmin)
+                    throw new ExecutionError("Admin role required") { Code = "FORBIDDEN" };
+                var name = c.GetArgument<string>("name")!;
+                var url = c.GetArgument<string>("url")!;
+                var secret = c.GetArgument<string>("secret");
+                var service = c.RequestServices!.GetRequiredService<IWebhookService>();
+                return await service.RegisterEndpointAsync(name, url, secret, c.CancellationToken);
+            });
+
+        Field<WebhookEndpointType>("deactivateWebhook")
+            .Argument<NonNullGraphType<IdGraphType>>("id")
+            .ResolveAsync(async c =>
+            {
+                var actorProvider = c.RequestServices!.GetRequiredService<IActorContextProvider>();
+                var actor = actorProvider.GetActorContext();
+                if (actor == null || !actor.IsAdmin)
+                    throw new ExecutionError("Admin role required") { Code = "FORBIDDEN" };
+                var id = c.GetArgument<Guid>("id");
+                var service = c.RequestServices!.GetRequiredService<IWebhookService>();
+                return await service.DeactivateEndpointAsync(id, c.CancellationToken);
+            });
+
+        Field<NonNullGraphType<ExportRequestResultType>>("requestMemberClaimsExport")
+            .Argument<NonNullGraphType<IdGraphType>>("memberId")
+            .ResolveAsync(async c =>
+            {
+                var actorProvider = c.RequestServices!.GetRequiredService<IActorContextProvider>();
+                var actor = actorProvider.GetActorContext();
+                if (actor == null)
+                    throw new ExecutionError("Authentication required") { Code = "UNAUTHORIZED" };
+                var memberId = c.GetArgument<Guid>("memberId");
+                var service = c.RequestServices!.GetRequiredService<IExportService>();
+                return await service.RequestMemberClaimsExportAsync(memberId, actor, c.CancellationToken);
             });
     }
 

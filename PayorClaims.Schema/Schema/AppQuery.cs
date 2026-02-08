@@ -1,9 +1,10 @@
 using GraphQL.Types;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection;
 using PayorClaims.Application.Abstractions;
+using PayorClaims.Application.Security;
 using PayorClaims.Domain.Entities;
 using PayorClaims.Infrastructure.Persistence;
-using Microsoft.Extensions.DependencyInjection;
 using PayorClaims.Schema;
 using PayorClaims.Schema.Inputs;
 using PayorClaims.Schema.Types;
@@ -42,7 +43,9 @@ public class AppQuery : ObjectGraphType
             .ResolveAsync(async c =>
             {
                 var db = c.RequestServices!.GetRequiredService<ClaimsDbContext>();
-                var id = c.GetArgument<Guid>("id");
+                var idStr = c.GetArgument<string>("id");
+                if (string.IsNullOrEmpty(idStr) || !Guid.TryParse(idStr, out var id))
+                    return null;
                 var member = await db.Members.AsNoTracking().FirstOrDefaultAsync(m => m.Id == id, c.CancellationToken);
                 if (member != null)
                 {
@@ -57,7 +60,9 @@ public class AppQuery : ObjectGraphType
             .ResolveAsync(async c =>
             {
                 var db = c.RequestServices!.GetRequiredService<ClaimsDbContext>();
-                var id = c.GetArgument<Guid>("id");
+                var idStr = c.GetArgument<string>("id");
+                if (string.IsNullOrEmpty(idStr) || !Guid.TryParse(idStr, out var id))
+                    return null;
                 var claim = await db.Claims.AsNoTracking().FirstOrDefaultAsync(cl => cl.Id == id, c.CancellationToken);
                 if (claim != null)
                 {
@@ -72,7 +77,9 @@ public class AppQuery : ObjectGraphType
             .ResolveAsync(async c =>
             {
                 var db = c.RequestServices!.GetRequiredService<ClaimsDbContext>();
-                var id = c.GetArgument<Guid>("id");
+                var idStr = c.GetArgument<string>("id");
+                if (string.IsNullOrEmpty(idStr) || !Guid.TryParse(idStr, out var id))
+                    return null;
                 var eob = await db.Eobs.AsNoTracking().FirstOrDefaultAsync(e => e.Id == id, c.CancellationToken);
                 if (eob != null)
                 {
@@ -201,6 +208,17 @@ public class AppQuery : ObjectGraphType
                 query = ApplySort(query, sortField, sortDir);
                 var items = await query.Skip(skip).Take(take).ToListAsync(c.CancellationToken);
                 return new ProviderPage { Items = items, TotalCount = totalCount, Skip = skip, Take = take };
+            });
+
+        Field<ExportJobStatusResultType>("exportJob")
+            .Argument<NonNullGraphType<IdGraphType>>("jobId")
+            .ResolveAsync(async c =>
+            {
+                var jobId = c.GetArgument<Guid>("jobId");
+                var actorProvider = c.RequestServices!.GetRequiredService<IActorContextProvider>();
+                var actor = actorProvider.GetActorContext();
+                var service = c.RequestServices!.GetRequiredService<IExportService>();
+                return await service.GetExportJobStatusAsync(jobId, actor, c.CancellationToken);
             });
     }
 

@@ -13,6 +13,8 @@ public class AuditEventConfiguration : IEntityTypeConfiguration<AuditEvent>
         b.Property(x => x.Action).HasMaxLength(50).IsRequired();
         b.Property(x => x.EntityType).HasMaxLength(50).IsRequired();
         b.Property(x => x.Notes).HasMaxLength(500);
+        b.Property(x => x.PrevHash).HasMaxLength(64).IsRequired();
+        b.Property(x => x.Hash).HasMaxLength(64).IsRequired();
 
         b.HasIndex(x => new { x.EntityType, x.EntityId });
         b.HasIndex(x => x.OccurredAt);

@@ -13,4 +13,6 @@ public class Member : BaseEntity
     public byte[]? EmailEncrypted { get; set; }
     public byte[]? PhoneEncrypted { get; set; }
     public byte[]? SsnEncrypted { get; set; }
+    /// <summary>Optional plain SSN when not using encryption (e.g. test/dev). When set, Admin/Adjuster/self Member may see it.</summary>
+    public string? SsnPlain { get; set; }
 }
