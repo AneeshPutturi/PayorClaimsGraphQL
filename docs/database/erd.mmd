@@ -1,0 +1,233 @@
+erDiagram
+  MEMBERS {
+    uniqueidentifier Id PK
+    string ExternalMemberNumber
+    string FirstName
+    string LastName
+    date Dob
+    string Status
+    datetime CreatedAt
+    datetime UpdatedAt
+    bool IsDeleted
+  }
+
+  PLANS {
+    uniqueidentifier Id PK
+    string PlanCode
+    string Name
+    int Year
+    string NetworkType
+    string MetalTier
+    bool IsActive
+    datetime CreatedAt
+    datetime UpdatedAt
+    bool IsDeleted
+  }
+
+  COVERAGES {
+    uniqueidentifier Id PK
+    uniqueidentifier MemberId FK
+    uniqueidentifier PlanId FK
+    date StartDate
+    date EndDate
+    string CoverageStatus
+    datetime CreatedAt
+    datetime UpdatedAt
+    bool IsDeleted
+  }
+
+  PROVIDERS {
+    uniqueidentifier Id PK
+    string Npi
+    string Name
+    string ProviderType
+    string ProviderStatus
+    datetime CreatedAt
+    datetime UpdatedAt
+    bool IsDeleted
+  }
+
+  PROVIDER_LOCATIONS {
+    uniqueidentifier Id PK
+    uniqueidentifier ProviderId FK
+    string Address1
+    string City
+    string State
+    string Zip
+    datetime CreatedAt
+    datetime UpdatedAt
+    bool IsDeleted
+  }
+
+  CPT_CODES {
+    uniqueidentifier Id PK
+    string Code
+    string Description
+    date EffectiveFrom
+    date EffectiveTo
+    bool IsActive
+  }
+
+  DIAGNOSIS_CODES {
+    uniqueidentifier Id PK
+    string CodeSystem
+    string Code
+    string Description
+    date EffectiveFrom
+    date EffectiveTo
+    bool IsActive
+  }
+
+  CLAIMS {
+    uniqueidentifier Id PK
+    string ClaimNumber
+    uniqueidentifier MemberId FK
+    uniqueidentifier ProviderId FK
+    uniqueidentifier CoverageId FK
+    date ServiceFrom
+    date ServiceTo
+    date ReceivedDate
+    string Status
+    decimal TotalBilled
+    decimal TotalAllowed
+    decimal TotalPaid
+    string IdempotencyKey
+    string DuplicateFingerprint
+    binary RowVersion
+    datetime CreatedAt
+    datetime UpdatedAt
+    bool IsDeleted
+  }
+
+  CLAIM_LINES {
+    uniqueidentifier Id PK
+    uniqueidentifier ClaimId FK
+    int LineNumber
+    string CptCode
+    int Units
+    decimal BilledAmount
+    decimal AllowedAmount
+    decimal PaidAmount
+    string LineStatus
+    string DenialReasonCode
+    datetime CreatedAt
+    datetime UpdatedAt
+    bool IsDeleted
+  }
+
+  CLAIM_DIAGNOSES {
+    uniqueidentifier Id PK
+    uniqueidentifier ClaimId FK
+    int LineNumber
+    string CodeSystem
+    string Code
+    bool IsPrimary
+  }
+
+  PAYMENTS {
+    uniqueidentifier Id PK
+    uniqueidentifier ClaimId FK
+    decimal Amount
+    string Method
+    string IdempotencyKey
+    datetime CreatedAt
+  }
+
+  EOBS {
+    uniqueidentifier Id PK
+    uniqueidentifier ClaimId FK
+    string EobNumber
+    string Status
+    string StorageKey
+    datetime CreatedAt
+  }
+
+  ACCUMULATORS {
+    uniqueidentifier Id PK
+    uniqueidentifier MemberId FK
+    uniqueidentifier PlanId FK
+    int Year
+    string Network
+    decimal DeductibleMet
+    decimal MoopMet
+    datetime UpdatedAt
+  }
+
+  MEMBER_CONSENTS {
+    uniqueidentifier Id PK
+    uniqueidentifier MemberId FK
+    string ConsentType
+    bool Granted
+    datetime GrantedAt
+    datetime RevokedAt
+  }
+
+  HIPAA_ACCESS_LOGS {
+    uniqueidentifier Id PK
+    string ActorType
+    uniqueidentifier ActorId
+    string SubjectType
+    uniqueidentifier SubjectId
+    string Purpose
+    datetime OccurredAt
+    string PrevHash
+    string Hash
+  }
+
+  WEBHOOK_ENDPOINTS {
+    uniqueidentifier Id PK
+    string Name
+    string Url
+    string Secret
+    bool IsActive
+    datetime CreatedAt
+  }
+
+  WEBHOOK_DELIVERIES {
+    uniqueidentifier Id PK
+    uniqueidentifier WebhookEndpointId FK
+    string EventType
+    string PayloadJson
+    int AttemptCount
+    datetime NextAttemptAt
+    datetime LastAttemptAt
+    int LastStatusCode
+    string Status
+    string LastError
+  }
+
+  EXPORT_JOBS {
+    uniqueidentifier Id PK
+    string RequestedByActorType
+    uniqueidentifier RequestedByActorId
+    uniqueidentifier MemberId FK
+    string Status
+    string FilePath
+    string DownloadTokenHash
+    datetime ExpiresAt
+    datetime CreatedAt
+    datetime CompletedAt
+  }
+
+  MEMBERS ||--o{ COVERAGES : has
+  PLANS   ||--o{ COVERAGES : covers
+
+  PROVIDERS ||--o{ PROVIDER_LOCATIONS : has
+
+  MEMBERS  ||--o{ CLAIMS : submits
+  PROVIDERS||--o{ CLAIMS : bills
+  COVERAGES||--o{ CLAIMS : validates
+
+  CLAIMS ||--o{ CLAIM_LINES : contains
+  CLAIMS ||--o{ CLAIM_DIAGNOSES : coded_as
+
+  CLAIMS ||--o{ PAYMENTS : paid_by
+  CLAIMS ||--o{ EOBS : generates
+
+  MEMBERS ||--o{ ACCUMULATORS : tracks
+  PLANS   ||--o{ ACCUMULATORS : for
+
+  MEMBERS ||--o{ MEMBER_CONSENTS : grants
+
+  WEBHOOK_ENDPOINTS ||--o{ WEBHOOK_DELIVERIES : receives
+  MEMBERS ||--o{ EXPORT_JOBS : exports
