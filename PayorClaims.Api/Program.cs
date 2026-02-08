@@ -102,11 +102,18 @@ if (app.Environment.IsDevelopment())
 }
 
 // Seed
-if (builder.Configuration.GetValue<bool>("Seed:Enabled"))
+var seedEnabled = builder.Configuration.GetValue<bool>("Seed:Enabled");
+var logger = app.Services.GetRequiredService<ILogger<Program>>();
+if (seedEnabled)
 {
+    logger.LogInformation("Seed enabled. Running migrations and seeding...");
     using var scope = app.Services.CreateScope();
     var seeder = scope.ServiceProvider.GetRequiredService<ISeedRunner>();
     await seeder.RunAsync(app.Lifetime.ApplicationStopping);
+}
+else
+{
+    logger.LogInformation("Seed disabled. Skipping.");
 }
 
 app.Run();

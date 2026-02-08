@@ -8,5 +8,6 @@ public class AppSchema : GraphQL.Types.Schema
     public AppSchema(IServiceProvider sp)
     {
         Query = sp.GetRequiredService<AppQuery>();
+        Mutation = sp.GetRequiredService<AppMutation>();
     }
 }

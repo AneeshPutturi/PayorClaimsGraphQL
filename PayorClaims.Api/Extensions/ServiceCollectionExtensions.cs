@@ -1,9 +1,13 @@
+using System.Reflection;
 using System.Threading.RateLimiting;
 using GraphQL;
+using GraphQL.DataLoader;
 using Microsoft.AspNetCore.RateLimiting;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
 using Microsoft.OpenApi;
 using PayorClaims.Api.Options;
+using PayorClaims.Schema.Loaders;
 using PayorClaims.Schema.Schema;
 using Swashbuckle.AspNetCore.SwaggerGen;
 
@@ -50,11 +54,31 @@ public static class ServiceCollectionExtensions
     public static IServiceCollection AddGraphQlServices(this IServiceCollection services)
     {
         services.AddSingleton<AppQuery>();
+        services.AddSingleton<AppMutation>();
         services.AddSingleton<AppSchema>();
+        services.AddSingleton<IDataLoaderContextAccessor, DataLoaderContextAccessor>();
+
+        // Rule: DbContext is scoped. Loaders that need it must be Scoped; resolve via context.RequestServices in resolvers.
+        services.AddScoped<ClaimsByMemberIdLoader>();
+        services.AddScoped<ClaimLinesByClaimIdLoader>();
+        services.AddScoped<DiagnosesByClaimIdLoader>();
+        services.AddScoped<ProviderByIdLoader>();
+        services.AddScoped<CoveragesByMemberIdLoader>();
+        services.AddScoped<PlanByIdLoader>();
+        services.AddScoped<EffectiveBenefitsByPlanIdLoader>();
+
         services.AddGraphQL(b => b
             .AddSystemTextJson()
             .AddDataLoader()
             .AddErrorInfoProvider(opt => opt.ExposeExceptionDetails = true));
+
+        var schemaAssembly = typeof(AppSchema).Assembly;
+        foreach (var type in schemaAssembly.GetTypes())
+        {
+            if (type.IsClass && !type.IsAbstract && type.Namespace?.StartsWith("PayorClaims.Schema") == true &&
+                (typeof(GraphQL.Types.IGraphType).IsAssignableFrom(type)))
+                services.AddSingleton(type);
+        }
         return services;
     }
 }
