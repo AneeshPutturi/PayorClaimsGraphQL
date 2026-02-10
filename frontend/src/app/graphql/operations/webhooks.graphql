@@ -1,0 +1,18 @@
+mutation RegisterWebhook($name: String!, $url: String!, $secret: String) {
+  registerWebhook(name: $name, url: $url, secret: $secret) {
+    id
+    name
+    url
+    isActive
+    createdAt
+  }
+}
+
+mutation DeactivateWebhook($id: ID!) {
+  deactivateWebhook(id: $id) {
+    id
+    name
+    url
+    isActive
+  }
+}

@@ -1,0 +1,22 @@
+query ProvidersList($filter: ProviderFilterInput, $page: PageInput, $sortField: ProviderSortField, $sortDir: SortDirection) {
+  providers(filter: $filter, page: $page, sortField: $sortField, sortDir: $sortDir) {
+    totalCount
+    skip
+    take
+    items {
+      id
+      npi
+      name
+      providerStatus
+    }
+  }
+}
+
+query ProviderByNpi($npi: String!) {
+  providerByNpi(npi: $npi) {
+    id
+    npi
+    name
+    providerStatus
+  }
+}

@@ -1,0 +1,14 @@
+query Ping {
+  ping
+}
+
+mutation SubmitAppeal($claimId: ID!, $level: Int!, $reason: String!) {
+  submitAppeal(claimId: $claimId, level: $level, reason: $reason) {
+    id
+    claimId
+    appealLevel
+    reason
+    status
+    submittedAt
+  }
+}

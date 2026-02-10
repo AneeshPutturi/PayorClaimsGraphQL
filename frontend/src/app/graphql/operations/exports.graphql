@@ -1,0 +1,17 @@
+mutation RequestExport($memberId: ID!) {
+  requestMemberClaimsExport(memberId: $memberId) {
+    jobId
+    status
+    downloadTokenOnce
+    expiresAt
+  }
+}
+
+query ExportJob($jobId: ID!) {
+  exportJob(jobId: $jobId) {
+    status
+    readyAt
+    downloadTokenOnce
+    expiresAt
+  }
+}

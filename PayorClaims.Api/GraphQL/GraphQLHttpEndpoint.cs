@@ -167,7 +167,7 @@ public static class GraphQLHttpEndpoint
         return je.ValueKind switch
         {
             JsonValueKind.String => je.GetString(),
-            JsonValueKind.Number => je.TryGetInt64(out var l) ? l : je.GetDouble(),
+            JsonValueKind.Number => je.TryGetInt32(out var i) ? i : je.TryGetInt64(out var l) ? (object)l : je.GetDouble(),
             JsonValueKind.True => true,
             JsonValueKind.False => false,
             JsonValueKind.Null => null,

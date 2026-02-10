@@ -1,0 +1,108 @@
+query ClaimsList($filter: ClaimFilterInput, $page: PageInput, $sortField: ClaimSortField, $sortDir: SortDirection) {
+  claims(filter: $filter, page: $page, sortField: $sortField, sortDir: $sortDir) {
+    totalCount
+    skip
+    take
+    items {
+      id
+      claimNumber
+      status
+      totalBilled
+      totalAllowed
+      totalPaid
+      receivedDate
+      memberId
+      providerId
+    }
+  }
+}
+
+query ClaimById($id: ID!) {
+  claimById(id: $id) {
+    id
+    claimNumber
+    status
+    totalBilled
+    totalAllowed
+    totalPaid
+    receivedDate
+    serviceFromDate
+    serviceToDate
+    rowVersion
+    memberId
+    providerId
+    coverageId
+    provider {
+      id
+      npi
+      name
+      providerStatus
+    }
+    lines {
+      lineNumber
+      cptCode
+      units
+      billedAmount
+      allowedAmount
+      paidAmount
+      lineStatus
+      denialReasonCode
+    }
+    diagnoses {
+      codeSystem
+      code
+      isPrimary
+      lineNumber
+    }
+    attachments {
+      id
+      fileName
+      contentType
+      uploadedAt
+      sha256
+    }
+  }
+}
+
+mutation SubmitClaim($input: ClaimSubmissionInput!) {
+  submitClaim(input: $input) {
+    claim {
+      id
+      claimNumber
+      status
+      totalBilled
+      receivedDate
+    }
+    alreadyExisted
+  }
+}
+
+mutation AdjudicateClaim($claimId: ID!, $rowVersion: String!, $lines: [AdjudicateLineInput!]!) {
+  adjudicateClaim(claimId: $claimId, rowVersion: $rowVersion, lines: $lines) {
+    claim {
+      id
+      claimNumber
+      status
+      totalAllowed
+      totalPaid
+      lines {
+        lineNumber
+        lineStatus
+        allowedAmount
+        paidAmount
+      }
+    }
+  }
+}
+
+mutation UploadAttachment($claimId: ID!, $fileName: String!, $contentType: String!, $base64: String!) {
+  uploadClaimAttachment(claimId: $claimId, fileName: $fileName, contentType: $contentType, base64: $base64) {
+    id
+    claimId
+    fileName
+    contentType
+    storageKey
+    sha256
+    uploadedAt
+  }
+}

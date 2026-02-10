@@ -1,0 +1,20 @@
+subscription OnClaimStatusChanged($claimId: ID!) {
+  claimStatusChanged(claimId: $claimId) {
+    id
+    claimNumber
+    status
+    totalAllowed
+    totalPaid
+    receivedDate
+  }
+}
+
+subscription OnEobGenerated($memberId: ID!) {
+  eobGenerated(memberId: $memberId) {
+    id
+    claimId
+    eobNumber
+    generatedAt
+    deliveryStatus
+  }
+}

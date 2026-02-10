@@ -1,0 +1,71 @@
+query Member360($memberId: ID!, $asOf: String!) {
+  memberById(id: $memberId) {
+    id
+    firstName
+    lastName
+    status
+    dob
+    externalMemberNumber
+    ssnMasked
+    emailMasked
+    phoneMasked
+    activeCoverage(asOf: $asOf) {
+      id
+      coverageStatus
+      startDate
+      endDate
+      plan {
+        planCode
+        name
+        effectiveBenefits(asOf: $asOf) {
+          category
+          network
+          copayAmount
+          coinsurancePercent
+          deductibleApplies
+        }
+      }
+    }
+    recentClaims(limit: 5) {
+      id
+      claimNumber
+      status
+      totalBilled
+      totalAllowed
+      totalPaid
+      receivedDate
+      provider {
+        npi
+        name
+      }
+      lines {
+        lineNumber
+        cptCode
+        billedAmount
+        lineStatus
+      }
+      diagnoses {
+        codeSystem
+        code
+        isPrimary
+        lineNumber
+      }
+    }
+  }
+}
+
+query MembersList($filter: MemberFilterInput, $page: PageInput, $sortField: MemberSortField, $sortDir: SortDirection) {
+  members(filter: $filter, page: $page, sortField: $sortField, sortDir: $sortDir) {
+    totalCount
+    skip
+    take
+    items {
+      id
+      firstName
+      lastName
+      status
+      dob
+      externalMemberNumber
+    }
+  }
+}
