@@ -1,7 +1,7 @@
 import { NgModule } from '@angular/core';
 import { BrowserModule } from '@angular/platform-browser';
-import { provideAnimationsAsync } from '@angular/platform-browser/animations/async';
-import { provideHttpClient } from '@angular/common/http';
+import { BrowserAnimationsModule } from '@angular/platform-browser/animations';
+import { HttpClientModule } from '@angular/common/http';
 
 import { AppRoutingModule } from './app-routing-module';
 import { AppComponent } from './app';
@@ -13,14 +13,12 @@ import { SharedModule } from './shared/shared.module';
   declarations: [AppComponent],
   imports: [
     BrowserModule,
+    BrowserAnimationsModule,
+    HttpClientModule,
     AppRoutingModule,
     GraphqlModule,
     LayoutModule,
     SharedModule,
-  ],
-  providers: [
-    provideHttpClient(),
-    provideAnimationsAsync(),
   ],
   bootstrap: [AppComponent],
 })

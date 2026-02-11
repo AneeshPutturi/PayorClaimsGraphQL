@@ -64,6 +64,18 @@ public static class ServiceCollectionExtensions
             options.AddPolicy("AdminOnly", p => p.RequireRole("Admin"));
         });
 
+        // CORS for Angular frontend
+        services.AddCors(options =>
+        {
+            options.AddPolicy("AllowFrontend", policy =>
+            {
+                policy.WithOrigins("http://localhost:4200", "http://localhost:4201")
+                      .AllowAnyHeader()
+                      .AllowAnyMethod()
+                      .AllowCredentials();
+            });
+        });
+
         services.AddControllers();
         services.AddHttpClient();
         services.AddHostedService<WebhookDeliveryWorker>();

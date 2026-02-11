@@ -1,5 +1,5 @@
-import { NgModule } from '@angular/core';
-import { APOLLO_OPTIONS } from 'apollo-angular';
+import { NgModule, inject } from '@angular/core';
+import { provideApollo } from 'apollo-angular';
 import { HttpLink } from 'apollo-angular/http';
 import { InMemoryCache, split, ApolloLink } from '@apollo/client/core';
 import type { ApolloClient } from '@apollo/client';
@@ -15,12 +15,12 @@ import { Router } from '@angular/router';
 import { environment } from '../../../environments/environment';
 import { AuthService } from '../auth/auth.service';
 
-export function createApollo(
-  httpLink: HttpLink,
-  authService: AuthService,
-  snackBar: MatSnackBar,
-  router: Router
-): ApolloClient.Options {
+function createApolloOptions(): ApolloClient.Options {
+  const httpLink = inject(HttpLink);
+  const authService = inject(AuthService);
+  const snackBar = inject(MatSnackBar);
+  const router = inject(Router);
+
   const http = httpLink.create({ uri: environment.apiUrl });
 
   const authLink = setContext(() => {
@@ -63,7 +63,6 @@ export function createApollo(
         }
       }
     } else {
-      // Network / other error
       const anyError = error as unknown as Record<string, unknown>;
       const status = anyError['status'] ?? anyError['statusCode'];
       if (status === 401) {
@@ -109,11 +108,7 @@ export function createApollo(
 
 @NgModule({
   providers: [
-    {
-      provide: APOLLO_OPTIONS,
-      useFactory: createApollo,
-      deps: [HttpLink, AuthService, MatSnackBar, Router],
-    },
+    provideApollo(createApolloOptions),
   ],
 })
 export class GraphqlModule {}

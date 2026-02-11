@@ -16,6 +16,7 @@ import { MatInputModule } from '@angular/material/input';
 import { MatDividerModule } from '@angular/material/divider';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { MatBadgeModule } from '@angular/material/badge';
+import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 
 import { ShellComponent } from './shell.component';
 import { LoginComponent } from './login.component';
@@ -46,6 +47,7 @@ import { NotificationDrawerComponent } from '../notifications/notification-drawe
     MatDividerModule,
     MatTooltipModule,
     MatBadgeModule,
+    MatProgressSpinnerModule,
   ],
   exports: [
     ShellComponent,

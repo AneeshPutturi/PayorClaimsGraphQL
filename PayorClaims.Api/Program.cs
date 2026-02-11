@@ -72,6 +72,7 @@ app.UseSerilogRequestLogging(options =>
 });
 
 app.UseRouting();
+app.UseCors("AllowFrontend");
 app.UseWebSockets();
 app.UseAuthentication();
 app.UseAuthorization();
